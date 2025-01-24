@@ -1,3 +1,13 @@
+"""
+salvoimport.py
+
+A collection of methods for loading and consistently formatting data from the SALVO campaign, NSA, and GML
+
+@author:
+    David Clemens-Sewall, NOAA
+
+"""
+
 import os
 import re
 import numpy as np
@@ -122,21 +132,33 @@ def load_salvo_file(file_path, inst, site=None):
         df = df.melt(ignore_index=False).set_index('variable', append=True)
     return df
 
-def load_gml_albedo(dir_path):
+def load_gml_albedo(dir_path, tz='UTC'):
     files = os.listdir(dir_path)
     df_list = []
     for file in files:
         df_list.append(pd.read_csv(os.path.join(dir_path, file), skiprows=2, sep=r'\s+',
                       names=['year', 'jd', 'month', 'day', 'hour', 'minute', 'dt', 'zen', 
-                             'incident_solar_W_m2', 'incident_solar_W_m2_qc', 
+                             'global_solar_W_m2', 'global_solar_W_m2_qc', 
                              'reflected_solar_W_m2', 'reflected_solar_W_m2_qc',
                              'direct_solar_W_m2', 'direct_solar_W_m2_qc',
                              'diffuse_solar_W_m2', 'diffuse_solar_W_m2_qc'],
                       usecols=np.arange(16)))
     df_gml = pd.concat(df_list, ignore_index=True)
     df_gml['timestamp_utc'] = pd.to_datetime(df_gml[['year', 'month', 'day', 'hour', 'minute']], utc=True)
+    df_gml['incident_solar_W_m2'] = df_gml['direct_solar_W_m2']*np.cos(df_gml['zen']*np.pi/180) + df_gml['diffuse_solar_W_m2']
+    df_gml['incident_solar_W_m2_qc'] = df_gml['direct_solar_W_m2_qc'] + df_gml['diffuse_solar_W_m2_qc']
+
     df_gml.drop(columns=['year', 'month', 'day', 'hour', 'minute', 'jd', 'dt'], inplace=True)
     df_gml.set_index('timestamp_utc', inplace=True)
+
+    if tz=='AKDT':
+        df_gml = df_gml.index.tz_convert('-0800').rename('timestamp_akdt')
+    elif tz=='UTC': 
+        # Do nothing
+        pass
+    else:
+        raise NotImplementedError('tz must be "UTC" or "AKDT"')
+    
     return df_gml
 
 def preprocess_rap(ds):
@@ -156,3 +178,4 @@ def preprocess_rap(ds):
     ds_rap_sel = ds_rap_sel.expand_dims(dim="model_initialization")
 
     return ds_rap_sel
+
