@@ -141,8 +141,9 @@ def load_gml_albedo(dir_path, tz='UTC'):
                              'global_solar_W_m2', 'global_solar_W_m2_qc', 
                              'reflected_solar_W_m2', 'reflected_solar_W_m2_qc',
                              'direct_solar_W_m2', 'direct_solar_W_m2_qc',
-                             'diffuse_solar_W_m2', 'diffuse_solar_W_m2_qc'],
-                      usecols=np.arange(16)))
+                             'diffuse_solar_W_m2', 'diffuse_solar_W_m2_qc',
+                             'air_temp_C', 'air_temp_C_qc'],
+                      usecols=np.concatenate([np.arange(16),[38, 39]])))
     df_gml = pd.concat(df_list, ignore_index=True)
     df_gml['timestamp_utc'] = pd.to_datetime(df_gml[['year', 'month', 'day', 'hour', 'minute']], utc=True)
     df_gml['incident_solar_W_m2'] = df_gml['direct_solar_W_m2']*np.cos(df_gml['zen']*np.pi/180) + df_gml['diffuse_solar_W_m2']
