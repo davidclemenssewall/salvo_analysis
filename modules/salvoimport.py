@@ -99,17 +99,27 @@ def load_salvo_file(file_path, inst, site=None):
     """
 
     if inst=='kz-mobile':
-        df = pd.read_csv(file_path, usecols=['date_akdt', 'timestamp_akdt', 'incident_solar_W_m2', 
-                                             'reflected_solar_W_m2', 'site', 'location',
-                                             'position', 'repetition', 'albedo'],
-                         dtype={'position': 'float64', 'timestamp_akdt':'str'})
+        try:
+            df = pd.read_csv(file_path, usecols=['date_akdt', 'timestamp_akdt', 'incident_solar_W_m2', 
+                                                 'reflected_solar_W_m2', 'site', 'location',
+                                                 'position', 'repetition', 'albedo'],
+                             dtype={'position': 'float64', 'timestamp_akdt':'str'})
+        except ValueError as e:
+            print(file_path)
+            print(repr(e))
+            return
         # Convert date and time to timestamp
         # Check whether : is present in timestamp_akdt
         if not df['timestamp_akdt'].str.contains(':[0-9][0-9]').all():
             if df['timestamp_akdt'].str.contains(':[0-9][0-9]').any():
                 raise RuntimeError("misformatted timestamp column in: " + file_path)
             else:
-                df['timestamp_akdt'] = df['timestamp_akdt'].apply(lambda x: x[:-2]+':'+x[-2:])
+                try:
+                    df['timestamp_akdt'] = df['timestamp_akdt'].apply(lambda x: x[:-2]+':'+x[-2:])
+                except TypeError:
+                    print(file_path)
+                    print(df['timestamp_akdt'])
+                    return
         #print(file_path)
         df['timestamp_akdt'] = pd.to_datetime(df['date_akdt']+'T'+df['timestamp_akdt']+'-0800', utc=False)
         df.drop(columns=['date_akdt'], inplace=True)
@@ -142,8 +152,9 @@ def load_gml_albedo(dir_path, tz='UTC'):
                              'reflected_solar_W_m2', 'reflected_solar_W_m2_qc',
                              'direct_solar_W_m2', 'direct_solar_W_m2_qc',
                              'diffuse_solar_W_m2', 'diffuse_solar_W_m2_qc',
-                             'air_temp_C', 'air_temp_C_qc'],
-                      usecols=np.concatenate([np.arange(16),[38, 39]])))
+                             'air_temp_C', 'air_temp_C_qc',
+                             'rh', 'rh_qc'],
+                      usecols=np.concatenate([np.arange(16),[38, 39, 40, 41]])))
     df_gml = pd.concat(df_list, ignore_index=True)
     df_gml['timestamp_utc'] = pd.to_datetime(df_gml[['year', 'month', 'day', 'hour', 'minute']], utc=True)
     df_gml['incident_solar_W_m2'] = df_gml['direct_solar_W_m2']*np.cos(df_gml['zen']*np.pi/180) + df_gml['diffuse_solar_W_m2']
